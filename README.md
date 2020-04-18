@@ -12,7 +12,7 @@ credentials = {
 client {
     credential-name = "c1"
     client-id       = ""
-    broker-server   = ""
+    broker-server   = "127.0.0.1:1883"
 
     keep-alive    = 3s
     ping-timeout  = 1s
