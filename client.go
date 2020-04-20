@@ -3,6 +3,7 @@ package mqtt
 import (
 	"encoding/base64"
 	"fmt"
+	"github.com/spirit-component/mqtt/store"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/go-spirit/spirit/mail"
@@ -10,6 +11,9 @@ import (
 	"github.com/go-spirit/spirit/worker/fbp"
 	"github.com/go-spirit/spirit/worker/fbp/protocol"
 	"github.com/gogap/config"
+
+	_ "github.com/spirit-component/mqtt/store/file"
+	_ "github.com/spirit-component/mqtt/store/memory"
 )
 
 type MQTTClient struct {
@@ -57,6 +61,18 @@ func NewMQTTClient(conf config.Configuration, postman mail.Postman) (ret *MQTTCl
 	password := conf.GetString("credentials." + credentialName + ".password")
 
 	opts := mqtt.NewClientOptions()
+
+	storeConf := clientConf.GetConfig("store")
+
+	storeProvier := storeConf.GetString("provider")
+	if len(storeProvier) > 0 {
+		var mqttStore mqtt.Store
+		mqttStore, err = store.NewStore(storeProvier, storeConf)
+		if err != nil {
+			return
+		}
+		opts.SetStore(mqttStore)
+	}
 
 	opts.AddBroker(brokerServer)
 	opts.SetClientID(clientID)
