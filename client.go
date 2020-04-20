@@ -91,6 +91,7 @@ func NewMQTTClient(conf config.Configuration, postman mail.Postman) (ret *MQTTCl
 		topic:    topic,
 		broker:   brokerServer,
 		username: username,
+		postman:  postman,
 	}
 
 	return
