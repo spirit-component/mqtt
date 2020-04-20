@@ -114,6 +114,14 @@ func (p *MQTTComponent) sendMessage(session mail.Session) (err error) {
 	qosStr := session.Query("qos")
 	retainedStr := session.Query("retained")
 
+	if len(qosStr) == 0 {
+		qosStr = "0"
+	}
+
+	if len(retainedStr) == 0 {
+		retainedStr = "false"
+	}
+
 	qos, err := strconv.Atoi(qosStr)
 	if err != nil {
 		err = fmt.Errorf("parse cos failure %w", err)

@@ -26,7 +26,7 @@ func RegisterStore(driverName string, fn NewStoreFunc) (err error) {
 	}
 
 	if _, exist := stores[driverName]; exist {
-		err = fmt.Errorf("store of: %d, already registered")
+		err = fmt.Errorf("store driver of: %s, already registered")
 		return
 	}
 
@@ -44,7 +44,7 @@ func NewStore(driverName string, storeConf config.Configuration) (store mqtt.Sto
 
 	fn, exist := stores[driverName]
 	if !exist {
-		err = fmt.Errorf("store of: %d, not registered")
+		err = fmt.Errorf("store driver of: %s, not registered", driverName)
 		return
 	}
 
