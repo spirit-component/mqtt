@@ -10,9 +10,11 @@ import (
 	"github.com/go-spirit/spirit/component"
 	"github.com/go-spirit/spirit/doc"
 	"github.com/go-spirit/spirit/mail"
+	"github.com/go-spirit/spirit/message"
 	"github.com/go-spirit/spirit/worker"
 	"github.com/go-spirit/spirit/worker/fbp"
 	"github.com/go-spirit/spirit/worker/fbp/protocol"
+	"github.com/gogap/tinymqtt"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -24,7 +26,7 @@ type MQTTComponent struct {
 
 	alias string
 
-	client       *MQTTClient
+	client       *tinymqtt.MQTTClient
 	producerLock sync.RWMutex
 }
 
@@ -81,7 +83,31 @@ func (p *MQTTComponent) init(opts ...component.Option) (err error) {
 		return
 	}
 
-	p.client, err = NewMQTTClient(p.opts.Config, p.opts.Postman)
+	subscribeConf := p.opts.Config.GetConfig("subscribe")
+
+	var subOptions []tinymqtt.SubscribeOption
+
+	for _, key := range subscribeConf.Keys() {
+		topic := subscribeConf.GetString(key + ".topic")
+		qos := int(subscribeConf.GetInt32("key" + ".qos"))
+
+		if len(topic) == 0 {
+			logrus.WithField("config-key", key).Printf("topic is empty")
+			return
+		}
+
+		subOptions = append(
+			subOptions,
+			tinymqtt.SubscribeOption{
+				Topic:   topic,
+				Qos:     byte(qos),
+				Handler: p.messageHandler,
+			},
+		)
+	}
+
+	p.client, err = tinymqtt.NewMQTTClient(p.opts.Config, subOptions...)
+
 	if err != nil {
 		return
 	}
@@ -196,4 +222,57 @@ func (p *MQTTComponent) Document() doc.Document {
 	}
 
 	return document
+}
+
+func (p *MQTTComponent) messageHandler(client mqtt.Client, msg mqtt.Message) {
+
+	data, err := base64.StdEncoding.DecodeString(string(msg.Payload()))
+	if err != nil {
+		return
+	}
+
+	payload := &protocol.Payload{}
+	err = protocol.Unmarshal(data, payload)
+
+	if err != nil {
+		return
+	}
+
+	graph, exist := payload.GetGraph(payload.GetCurrentGraph())
+
+	if !exist {
+		err = fmt.Errorf("could not get graph of %s in MQTTComponent.postMessage", payload.GetCurrentGraph())
+		return
+	}
+
+	graph.MoveForward()
+
+	port, err := graph.CurrentPort()
+
+	if err != nil {
+		return
+	}
+
+	fromUrl := ""
+	prePort, preErr := graph.PrevPort()
+	if preErr == nil {
+		fromUrl = prePort.GetUrl()
+	}
+
+	session := mail.NewSession()
+
+	session.WithPayload(payload)
+	session.WithFromTo(fromUrl, port.GetUrl())
+
+	fbp.SessionWithPort(session, graph.GetName(), port.GetUrl(), port.GetMetadata())
+
+	err = p.opts.Postman.Post(
+		message.NewUserMessage(session),
+	)
+
+	if err != nil {
+		return
+	}
+
+	return
 }
