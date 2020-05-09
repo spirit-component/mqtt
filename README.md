@@ -20,8 +20,10 @@ client {
     quiesce = 250
 
     subscribe = {
-        topic = "API"
-        qos   = 0
+        topic-01 {
+            topic = "API"
+            qos   = 0
+        }
     }
 
     store {

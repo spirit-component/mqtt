@@ -92,8 +92,8 @@ func (p *MQTTComponent) init(opts ...component.Option) (err error) {
 		qos := int(subscribeConf.GetInt32("key" + ".qos"))
 
 		if len(topic) == 0 {
-			logrus.WithField("config-key", key).Printf("topic is empty")
-			return
+			logrus.WithField("config-key", key).Warnln("topic is empty")
+			continue
 		}
 
 		subOptions = append(
@@ -228,6 +228,7 @@ func (p *MQTTComponent) messageHandler(client mqtt.Client, msg mqtt.Message) {
 
 	data, err := base64.StdEncoding.DecodeString(string(msg.Payload()))
 	if err != nil {
+		logrus.WithError(err).Errorln("decode message failure")
 		return
 	}
 
